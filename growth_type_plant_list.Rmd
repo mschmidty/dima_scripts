@@ -1,0 +1,41 @@
+---
+title: "Finding Growth Types"
+author: "Michael Schmidt"
+date: "September 28, 2018"
+output: html_document
+---
+
+## Load libraries
+```{r}
+library(tidyverse)
+```
+
+
+## Load plant list
+```{r}
+plants<-read_csv("data/COplants5312018.txt")
+plant_form<-read_csv("data/plant_list_with_growth_habit.csv")
+```
+
+```{r}
+plants
+plant_form
+```
+
+```{r}
+final_plant_list<-plants%>%
+  left_join(select(plant_form,Symbol,3))
+final_plant_list
+```
+
+## Get one unique value per symbol
+```{r}
+final_plant_list_sub<-final_plant_list[match(unique(final_plant_list$Symbol), final_plant_list$Symbol),]
+final_plant_list_sub
+```
+
+## Write CSV
+```{r}
+write_csv(final_plant_list_sub, "data/plant_list_with_growth_type.csv")
+```
+

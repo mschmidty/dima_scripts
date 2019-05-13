@@ -1,0 +1,94 @@
+---
+title: "Cover By Plot"
+author: "Michael Schmidt"
+date: "September 25, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This file will load a DIMA access database, and produce a 
+
+## Load Libraries
+```{r}
+options('scipen' = 10)
+library(RODBC) ## - for reading Access Databases
+library(tidyverse)
+library(dima.tools)
+library(data.table)
+```
+
+## Load Database
+```{r}
+dima<-read.dima("dima/2017/dove_creek", all.tables = T)
+```
+
+## Get Useful tables
+
+```{r}
+lpi_detail_base <- as.tibble(dima$tblLPIDetail)
+lpi_header <- as.tibble(dima$tblLPIHeader)
+plot_key <-as.tibble(dima$tblLines)
+plot_info <- as.tibble(dima$tblPlots)
+```
+
+```{r}
+plot_key
+```
+
+##Get Join useful data
+```{r}
+lpi_detail<-lpi_detail_base %>% 
+  left_join(select(lpi_header, LineKey, RecKey)) %>%
+  left_join(select(plot_key, PlotKey, LineID, LineKey))%>%
+  select(PlotKey,LineID, RecKey:LineKey )
+lpi_detail
+
+
+```
+
+## Count Each canopy layer
+
+```{r}
+tc <- summarize(group_by(lpi_detail, PlotKey, TopCanopy), tc=n())
+low1 <- summarize(group_by(lpi_detail, PlotKey, Lower1), lower1=n())
+low2 <- summarize(group_by(lpi_detail, PlotKey, Lower2), lower2=n())
+low3 <- summarize(group_by(lpi_detail, PlotKey, Lower3), lower3=n())
+low4 <- summarize(group_by(lpi_detail, PlotKey, Lower4), lower4=n())
+
+tc <- tc %>%rename(symbol=2)
+low1 <- low1 %>%rename(symbol=2)
+low2 <- low2 %>%rename(symbol=2)
+low3 <- low3 %>%rename(symbol=2)
+low4 <- low4 %>%rename(symbol=2)
+```
+
+## 
+```{r}
+merged_count <- tc %>% 
+  full_join(low1) %>%
+  full_join(low2)%>%
+  full_join(low3)%>%
+  full_join(low4) %>% ##Some Dimas have no lower4 and some may have more than lower4
+  replace(is.na(.), 0) %>%
+  filter(!PlotKey == 999999999)%>%
+  rowwise()%>%
+  mutate(cover_sum=sum(tc, lower1, lower2, lower3, lower4))%>% ##Must alter this section if they have more
+  mutate(cover_percent=(cover_sum/150))
+merged_count
+```
+
+
+## Save RDS
+
+```{r}
+saveRDS(merged_count, file="output/2017/dove_creek/2017_dima_lpi_cover_all_dov")
+```
+
+
+
+
+
+

@@ -1,0 +1,59 @@
+---
+title: "Reshape LPI Data For GIS"
+author: "Michael Schmidt"
+date: "September 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This Note Reshapes and joinsdata for ArchGIS 
+
+## Load Libraries
+```{r}
+options('scipen' = 10)
+library(RODBC) ## - for reading Access Databases
+library(tidyverse)
+library(dima.tools)
+library(data.table)
+```
+
+## Load Database and Cover Files
+
+```{r}
+dima<-read.dima("dima/2015", all.tables = T)
+lpi_data<-readRDS("output/2015/2015_dima_lpi_cover_all")
+lpi_data
+```
+
+## Get Useful tables
+
+```{r}
+lpi_detail_base <- as.tibble(dima$tblLPIDetail)
+lpi_header <- as.tibble(dima$tblLPIHeader)
+plot_key <-as.tibble(dima$tblLines)
+plot_info <- as.tibble(dima$tblPlots)
+plot_info
+```
+
+
+##Reshape data for display in ArcGIS
+Also Join Identifying features. 
+```{r}
+gisData<- lpi_data %>%
+  select(PlotKey, symbol, cover_percent)%>%
+  filter(!str_detect(symbol, "^AF|^PF|^AG|^PG"))%>%
+  spread(symbol, cover_percent)%>%
+  replace(is.na(.), 0)%>%
+  left_join(select(plot_info, PlotKey, PlotID, EstablishDate, Easting, Northing))%>%
+  select(PlotID:Northing, 2:PlotID)
+gisData
+```
+
+## Write File
+```{r}
+write_csv(gisData, "output/2015/2015_dima_lpi_cover_all_reshape.csv")
+```
+

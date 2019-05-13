@@ -1,0 +1,53 @@
+---
+title: "Sagebrush and Grouse Density Analysis 2015 to 2017"
+author: "Michael Schmidt"
+date: "October 11, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+```{r}
+library(tidyverse)
+```
+
+## Load Dataset
+```{r}
+(data<-read_csv("data/lpi_2015_to_2017_join_gps_density.txt"))
+```
+
+##SageBrush Analysis
+```{r}
+sage_subset<-data%>%
+  select(PlotID:PlotKey, ARNO4, ARTR2, RASTERVALU)%>%
+  rename(grouse_dense=RASTERVALU)%>%
+  filter(grouse_dense>0)%>%
+  mutate(sage_total=ARNO4+ARTR2)
+```
+
+## Plot
+```{r}
+ggplot(sage_subset, aes(x=grouse_dense, y=ARTR2))+
+  geom_point()+
+  geom_smooth()
+```
+
+## ARNO 4
+```{r}
+ggplot(sage_subset, aes(x=grouse_dense, y=ARNO4))+
+  geom_point()+
+  geom_smooth()
+
+```
+
+sage_total
+```{r}
+sage_subset
+ggplot(sage_subset, aes(x=grouse_dense, y=sage_total))+
+  geom_point()+
+  geom_smooth()
+```
+

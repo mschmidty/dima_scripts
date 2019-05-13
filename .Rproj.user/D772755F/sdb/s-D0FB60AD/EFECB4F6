@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1542670293814.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "EFECB4F6",
+    "lastKnownWriteTime" : 0,
+    "last_content_update" : -2147483648,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "36B0E00A",
+        "caption" : "haf_final",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=haf_final&cache_key=36B0E00A",
+        "displayedObservations" : 68,
+        "environment" : "",
+        "object" : "haf_final",
+        "preview" : 0,
+        "totalObservations" : 68,
+        "variables" : 12
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

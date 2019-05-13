@@ -1,0 +1,25 @@
+library(tidyverse)
+library(stringr)
+
+data<-read.csv("C:\\Users\\mschmidt\\Downloads\\candidates_2.csv", header=F)%>%
+  as_tibble()
+
+email<-data%>%
+  filter(str_detect(V1, "@"))%>%
+  select(V1)%>%
+  rename(Email=V1)
+
+final_data<-data%>%
+  filter(str_detect(V1, ","))%>%
+  select(V1)%>%
+  rename(Name=V1)%>%
+  separate(Name, c("Last_Name", "First_Name"), sep = ", ")%>%
+  bind_cols(email)%>%
+  select(First_Name, Last_Name, Email)
+
+write_csv(final_data, "C:\\Users\\mschmidt\\Downloads\\candidates_cleaned_2.csv" )
+
+  
+
+
+

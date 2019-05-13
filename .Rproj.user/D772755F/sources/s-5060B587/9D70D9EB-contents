@@ -1,0 +1,283 @@
+---
+title: "LPI Cover By Growth Type"
+author: "Michael Schmidt"
+date: "September 28, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Load Libraries
+```{r}
+library(RODBC) ## - for reading Access Databases
+library(tidyverse)
+library(dima.tools)
+library(spsurvey)
+```
+
+
+
+
+## function to make list
+This function reads all dimas from a folder and reads them into a list.  `read.dima` is supposed to do this, but I can't get it to work. 
+```{r}
+dimas_to_list<-function(x){
+  temp<-list.files(path=x, pattern="*.mdb")
+  lapply(temp, function(y){
+    read.dima(x, dima.list=y, all.tables=T)
+  })
+}
+dima_list<-dimas_to_list("dima/multi_dima_test")
+```
+
+
+
+
+## Function: Merges Arc info and plot info for all Dimas in a list 
+```{r}
+dima_header_info<-function(y){
+  list<-lapply(y, function(x){
+    select(x$tblPlots,PlotID, EstablishDate, Datum:Northing, PlotKey)
+  })
+  do.call(rbind, list)%>%
+    filter(!PlotID == "unknown")
+}
+header_info_data<-dima_header_info(dima_list)
+head(header_info_data)
+```
+
+
+## function 
+```{r}
+join_dima_tables<-function(x){
+  lpi_detail_base <- as.tibble(x$tblLPIDetail)
+  lpi_header <- as.tibble(x$tblLPIHeader)
+  plot_key <-as.tibble(x$tblLines)
+  plot_info <- as.tibble(x$tblPlots)
+  
+  lpi_detail_base%>%
+    left_join(select(lpi_header, LineKey, RecKey))%>%
+    left_join(select(plot_key, PlotKey, LineID, LineKey))%>%
+    left_join(select(plot_info, PlotKey, PlotID))%>%
+    select(PlotID, PlotKey,LineID, RecKey:LineKey )
+}
+
+join_ldima_tables<-function(dima.list){
+  temp_list<-lapply(dima.list, join_dima_tables)
+  do.call(plyr::rbind.fill, temp_list)
+}
+
+all_dima_tables_bind<-join_ldima_tables(dima_list)%>%as.tibble()
+
+all_dima_tables_bind
+
+```
+
+
+
+
+## This calculates all of the heights for all of the plots. 
+```{r}
+avg_heights<-all_dima_tables_bind%>%
+  mutate(HeightWoody2=as.numeric(HeightWoody))%>%
+  select(PlotKey, LineKey, HeightWoody2, SpeciesWoody, HeightHerbaceous, SpeciesHerbaceous)%>%
+  group_by(PlotKey)%>%
+  summarize(Avg_Height_Woody = mean(!is.na(HeightWoody2)), Avg_Height_Herbaceous=mean(!is.na(HeightHerbaceous)))%>%
+  filter(PlotKey>1000000000000)
+```
+
+
+```{r}
+woody_by_species<-all_dima_tables_bind %>%
+  mutate(HeightWoody2=as.numeric(HeightWoody))%>%
+  select(PlotKey, LineKey, HeightWoody2, SpeciesWoody, HeightHerbaceous, SpeciesHerbaceous)%>%
+  group_by(PlotKey, SpeciesWoody)%>%
+  summarize(Avg_Height = mean(HeightWoody2))%>%
+  rename(Species = SpeciesWoody)%>%
+  filter(Avg_Height>0)
+
+```
+
+```{r}
+woody_by_species%>%
+  filter(Species=='ARTR2')%>%
+  ggplot(aes(Avg_Height))+
+    geom_density(fill="#BADA55", alpha=0.5)+
+    theme_classic()+
+    geom_vline(xintercept=25, colour="black", size=1)+
+    geom_vline(xintercept=50, colour="black", size=1)
+```
+
+```{r}
+(herbaceous_by_species<-all_dima_tables_bind %>%
+  mutate(HeightWoody2=as.numeric(HeightWoody))%>%
+  select(PlotKey, LineKey, HeightWoody2, SpeciesWoody, HeightHerbaceous, SpeciesHerbaceous)%>%
+  group_by(PlotKey, SpeciesHerbaceous)%>%
+  summarize(Avg_Height = mean(HeightHerbaceous))%>%
+  rename(Species = SpeciesHerbaceous)%>%
+  filter(Avg_Height>0))
+```
+
+Herbaceous Height Density 
+```{r}
+herbaceous_by_species%>%
+  ggplot(aes(Avg_Height))+
+    geom_density(fill="#BADA55", alpha=0.5)+
+    theme_classic()+
+    geom_vline(xintercept=10, colour="black", size=1)
+```
+
+## A lot of Height Crap
+
+I really need to fix this!!!!
+```{r}
+(all_species_height<-rbind(herbaceous_by_species, woody_by_species)%>%
+   rename(symbol=Species))
+
+(height_combined_w_growth_type<- all_species_height %>%
+  left_join(plant_growth)%>%
+  select(PlotKey, symbol, "Growth Habit", Avg_Height)%>%
+  rename(growth_habit="Growth Habit")%>%
+  mutate(growth_habit = ifelse(symbol=="HL", "HL", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="WL", "WL", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="None", "None", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="ARTR2" | symbol=="ARNO4" | symbol == "KRLA2" | symbol =="ERNA10" | symbol == "QUGA", "Shrub", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="GUSA2", "Subshrub", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="COAR4" | symbol == "PEPU7" | symbol == "OECA10" | symbol == "IPRO" | symbol == "ERLO4" | symbol == "ERUM", "Forb/herb", growth_habit))%>%
+   mutate(growth_habit = ifelse(growth_habit=="Subshrub, Forb/herb", "Forb/herb", growth_habit ))%>%
+   mutate(growth_habit = ifelse(growth_habit=="Subshrub, Shrub", "Subshrub", growth_habit )) %>%
+   mutate(growth_habit = ifelse(growth_habit=="Tree, Shrub", "Shrub", growth_habit ))
+)
+
+(height_growth_type_spread<-height_combined_w_growth_type%>%
+  group_by(PlotKey, growth_habit)%>%
+  summarise(Avg_Height=mean(Avg_Height))%>%
+  spread(growth_habit, Avg_Height))
+
+
+(spread_all_species_height<-all_species_height%>%
+  spread(symbol, Avg_Height))
+
+height_all<-full_join(avg_heights, height_growth_type_spread)%>%
+  left_join(spread_all_species_height)
+height_all
+
+write_csv(height_all, "data/separate_datasets/all_heights.csv")
+```
+
+
+
+
+## Function Count Cover
+This function counts the cover percent for each plot by species. 
+```{r}
+count_fun<-function(xx){
+  tc <- dplyr::summarize(dplyr::group_by(xx, PlotKey, TopCanopy), tc=n())
+  low1 <- dplyr::summarize(dplyr::group_by(xx, PlotKey, Lower1), lower1=n())
+  low2 <- dplyr::summarize(dplyr::group_by(xx, PlotKey, Lower2), lower2=n())
+  low3 <- dplyr::summarize(dplyr::group_by(xx, PlotKey, Lower3), lower3=n())
+  low4 <- dplyr::summarize(dplyr::group_by(xx, PlotKey, Lower4), lower4=n())
+  
+  tc <- tc %>%dplyr::rename(symbol=2)
+  low1 <- low1 %>%dplyr::rename(symbol=2)
+  low2 <- low2 %>%dplyr::rename(symbol=2)
+  low3 <- low3 %>%dplyr::rename(symbol=2)
+  low4 <- low4 %>%dplyr::rename(symbol=2)
+  
+  tc %>%
+    full_join(low1) %>%
+    full_join(low2)%>%
+    full_join(low3)%>%
+    full_join(low4)%>%
+    replace(is.na(.), 0) %>%
+    filter(!PlotKey == 999999999)%>%
+    rowwise()%>%
+    mutate(cover_sum=sum(tc, lower1, lower2, lower3, lower4))%>% ##Must alter this section if they have more
+    mutate(cover_percent=(cover_sum/150))
+}
+counted_dima<-count_fun(all_dima_tables_bind)
+counted_dima
+```
+
+## Load and Clean Plant list
+```{r}
+plant_growth<-read_csv("data/plant_list_with_growth_habit.csv")
+plant_growth<-plant_growth%>% rename(symbol=Symbol)
+```
+
+```{r}
+combined_w_growth_type<- counted_dima %>%
+  left_join(plant_growth)%>%
+  select(PlotKey, symbol, "Growth Habit", tc:cover_percent)%>%
+  rename(growth_habit=3)%>%
+  mutate(growth_habit = ifelse(symbol=="HL", "HL", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="WL", "WL", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="None", "None", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="ARTR2" | symbol=="ARNO4" | symbol == "KRLA2" | symbol =="ERNA10" | symbol == "QUGA", "Shrub", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="GUSA2", "Subshrub", growth_habit))%>%
+  mutate(growth_habit = ifelse(symbol=="COAR4" | symbol == "PEPU7" | symbol == "OECA10" | symbol == "IPRO" | symbol == "ERLO4" | symbol == "ERUM", "Forb/herb", growth_habit))%>%
+   mutate(growth_habit = ifelse(growth_habit=="Subshrub, Forb/herb", "Forb/herb", growth_habit ))%>%
+   mutate(growth_habit = ifelse(growth_habit=="Subshrub, Shrub", "Subshrub", growth_habit )) %>%
+   mutate(growth_habit = ifelse(growth_habit=="Tree, Shrub", "Shrub", growth_habit ))
+   
+  
+```
+
+
+Cumulative Distribution Function of Sagebrush
+```{r}
+combined_w_growth_type%>%
+  filter(symbol=="ARTR2")%>%
+  select(cover_percent)%>%
+  unlist()%>%
+  ecdf()%>%
+  plot()
+```
+
+## Sp Survey Cumulative Distribution Function
+```{r}
+
+```
+
+
+# sum by growth type
+This will eventually need to be updated with Joels growth type information. 
+```{r}
+sum_growth_type_V2<-combined_w_growth_type%>%
+  group_by( PlotKey, growth_habit)%>%
+  summarise(cover_percent=sum(cover_percent))%>%
+  spread(growth_habit, cover_percent)%>%
+  left_join(select(header_info_data, PlotKey, PlotID, EstablishDate, Easting, Northing))%>%
+  select(PlotID:Northing, PlotKey, 1:WL)
+
+
+write_csv(select(sum_growth_type_V2, PlotKey:ncol(sum_growth_type_V2)), "data/separate_datasets/lpi_cover_by_growth_type.csv")
+
+```
+
+
+#Reshape for GIS
+```{r}
+gisData<- counted_dima %>%
+  select(PlotKey, symbol, cover_percent)%>%
+  filter(!str_detect(symbol, "^AF|^PF|^AG|^PG"))%>%
+  spread(symbol, cover_percent)%>%
+  replace(is.na(.), 0)%>%
+  left_join(select(header_info_data, PlotKey, PlotID, EstablishDate, Easting, Northing))%>%
+  select(PlotID:Northing, PlotKey, 4:PlotID)
+head(gisData)
+```
+
+##Make Selection of 
+```{r}
+select(gisData, PlotKey:ncol(gisData))
+write_csv(select(gisData, PlotKey:ncol(gisData)), "data/separate_datasets/all_plants_2015to2017.csv")
+```
+
+
+```{r}
+write_csv(gisData, "output/all/lpi_cover_all_2015_to_2017.csv")
+```
+

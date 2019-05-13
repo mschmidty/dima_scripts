@@ -1,0 +1,100 @@
+---
+title: "HAF Analysis"
+author: "Michael Schmidt"
+date: "October 18, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Todo
+
+Need to run haf for each of the seasons with all of the measurements, then combine to make a by plot level table.  Then Plot all together. 
+```{r}
+library(tidyverse)
+```
+
+```{r}
+header_data<-read_csv("data/separate_datasets/header_plot_gis.csv")
+lpi_all_data<-read_csv("data/separate_datasets/all_plants_2015to2017.csv")
+growth_type_data<-read_csv("data/separate_datasets/lpi_cover_by_growth_type.csv")
+height_data<-read_csv("data/separate_datasets/all_heights.csv") ##this has NAs in it. 
+```
+## All Sagebrush Cover 
+1. Winter Sagebrush Cover
+  * Suitable: 30-40%
+  * Marginal: 15-30%
+  * Unsuitable: <15%
+2. Summer Sagebrush Cover
+```{r}
+sagebrush_cover_haf<-lpi_all_data%>%
+  select(PlotKey, ARNO4, ARTR2)%>%
+  mutate(combined = ARTR2 + ARNO4)%>%
+  mutate(winter_sagebrush_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>0.30, "Suitable", ifelse(combined>0.15 & combined <0.30, "Marginal", "Unsuitable"))))%>%
+  mutate(summer_sagebrush_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>0.05 & combined<0.20, "Suitable", ifelse(combined>0.025 & combined <0.05 | combined>0.20, "Marginal", "Unsuitable"))))%>%
+  mutate(nesting_early_brood_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>0.10 & combined<0.25, "Suitable", ifelse(combined>0.05 & combined <0.1 | combined>0.25, "Marginal", "Unsuitable"))))%>%
+  select(PlotKey, winter_sagebrush_haf:nesting_early_brood_haf)
+
+sagebrush_cover_haf%>%View()
+
+```
+
+
+
+
+### Sagebrush Heights
+```{r}
+(winter_haf_sage_height<-height_data%>%
+  select(PlotKey, ARTR2, ARNO4)%>%
+  mutate_all(funs(replace(., is.na(.), 0))) %>%
+  mutate(combined=ifelse(ARNO4>ARTR2, ARNO4, ARTR2))%>%
+  mutate(winter_sage_height_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>40, "Suitable", ifelse(combined>20 & combined <40, "Marginal", "Unsuitable"))))%>%
+  mutate(summer_sage_height_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>25 & combined<25, "Suitable", ifelse(combined>20 & combined < 25 | combined>50, "Marginal", "Unsuitable"))))%>%
+  mutate(mesic_nesting_sage_height_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>25 & combined<50, "Suitable", ifelse(combined>20 & combined < 25 | combined>50, "Marginal", "Unsuitable"))))%>%
+   mutate(arid_nesting_sage_height_haf = ifelse(combined==0, "Not Sagebrush", ifelse(combined>15 & combined<50, "Suitable", ifelse(combined>10 & combined < 15 | combined>50, "Marginal", "Unsuitable"))))%>%
+   select(PlotKey, winter_sage_height_haf:arid_nesting_sage_height_haf)
+ 
+ )
+  
+
+
+```
+
+
+
+## Grass and other covers
+```{r}
+summer_nesting_forb_grass<-growth_type_data%>%
+  replace(.,is.na(.), 0)%>%
+  mutate(summer_grass_cover_haf = ifelse(Graminoid>.10, "Suitable", ifelse(Graminoid>0.05 & Graminoid < 0.10, "Marginal", "Unsuitable")))%>%
+  mutate(summer_forb_cover_haf = ifelse(`Forb/herb`>0.05, "Suitable", ifelse(`Forb/herb`>0.025 & `Forb/herb` < 0.05, "Marginal", "Unsuitable")))%>%
+  mutate(nesting_grass_cover_haf = ifelse(Graminoid>.10, "Suitable", ifelse(Graminoid>0.05 & Graminoid < 0.10, "Marginal", "Unsuitable")))%>%
+  mutate(nesting_forb_cover = ifelse(`Forb/herb`>0.05, "Suitable", ifelse(`Forb/herb`>0.025 & `Forb/herb` < 0.05, "Marginal", "Unsuitable")))%>%
+  select(PlotKey, summer_grass_cover_haf:nesting_forb_cover)
+
+  
+  
+  
+```
+
+## Join Datasets
+```{r}
+haf_final<-sagebrush_cover_haf%>%
+  left_join(summer_nesting_forb_grass)%>%
+  left_join(winter_haf_sage_height)
+```
+
+
+
+
+
+
+
+## How to set levels so that you can plot these in order. 
+```{r}
+# mutate(haf_score1 = factor(haf_score, levels=c("Suitable", "Marginal", "Unsuitable", "Not Sagebrush")))%>%
+#   select(PlotKey:combined, haf_score1)%>%
+#   rename(haf_score=haf_score1))
+```
+

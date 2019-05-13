@@ -1,0 +1,120 @@
+---
+title: "Grouse Density by Growth Type"
+author: "Michael Schmidt"
+date: "October 11, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+options("scipen"=100, "digits"=4)
+library(tidyverse)
+
+library(relaimpo)
+```
+
+
+```{r}
+(head<-read_csv("data/separate_datasets/header_plot_gis.csv"))
+(cover<-read_csv("data/separate_datasets/lpi_cover_by_growth_type.csv"))
+(height<-read_csv("data/separate_datasets/all_heights.csv"))
+(cover_all<-read_csv("data/separate_datasets/all_plants_2015to2017.csv"))
+```
+ 
+##SageBrush Analysis
+```{r}
+(clean_data<-data%>%
+  rename(grouse_dense=RASTERVALU)%>%
+  filter(grouse_dense>=0)%>%
+  mutate(total_cover=Forb_herb+Graminoid+Shrub)%>%
+  replace(is.na(.), 0))
+
+subset_data<-clean_data %>% select(Forb_herb:total_cover)
+(subset_data2<- subset_data%>%filter(grouse_dense>0))
+```
+
+```{r}
+(Forb<-ggplot(subset_data, aes(x=grouse_dense, y=Forb_herb))+
+  geom_point()+
+  geom_smooth()+
+  theme_minimal())
+```
+
+```{r}
+(Gramanoid<-ggplot(subset_data, aes(x=grouse_dense, y=Graminoid))+
+  geom_point()+
+  geom_smooth())
+```
+
+
+```{r}
+(Shrub<-ggplot(subset_data2, aes(x=Shrub, y=grouse_dense))+
+  geom_point()+
+  geom_smooth())
+```
+
+
+```{r}
+(None<-ggplot(subset_data, aes(x=grouse_dense, y=None))+
+  geom_point()+
+  geom_smooth())
+```
+
+```{r}
+(None<-ggplot(subset_data2, aes(x=grouse_dense, y=total_cover))+
+  geom_point()+
+  geom_smooth())
+```
+
+
+```{r}
+pairs(subset_data)
+```
+
+compare grouse ares with none grouse areas
+
+```{r}
+head(compare_data<-subset_data%>%
+  mutate(grouse_presence = if_else(grouse_dense>0, 1, 0))%>%
+  select(-grouse_dense))
+```
+
+```{r}
+ggplot(compare_data, aes(variable, value, fill=grouse_presence))+
+  geom_boxplot()
+```
+
+```{r}
+View(cor(subset_data))
+```
+
+```{r}
+set.seed(955)
+fit<-lm(grouse_dense ~ Forb_herb * Shrub * Graminoid -1, data = subset_data)
+fit
+anova(fit)
+summary(fit)
+
+```
+
+```{r}
+fit2<-lm(grouse_dense ~ Forb_herb + Shrub + Graminoid + HL  + None  + WL  - 1, data = subset_data2)
+fit2
+anova(fit2)
+summary(fit2)
+termplot(fit2)
+```
+
+```{r}
+plot(fit2)
+```
+
+```{r}
+plot(grouse_dense~log(total_cover), data=subset_data2)
+fit3<-nls(grouse_dense ~ Forb_herb * x/(b+x), data=subset_data2)
+lines(grouse_dense ~ Forb_herb * Shrub *  Graminoid , data=subset_data2)
+```
+

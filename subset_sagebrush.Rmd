@@ -1,0 +1,32 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This script subsets sagebrush plots from the greater AIM Database. 
+
+## Load libraries
+
+```{r paged.print=TRUE}
+library(tidyverse)
+```
+
+
+```{r}
+plot_data<-readRDS("output/2017/dove_creek/2017_dima_lpi_cover_all_dov") ## Change this to whatever file you want. 
+plot_data
+```
+
+## Subset Sagebrush
+```{r paged.print=TRUE}
+sagebrush_plots<- plot_data %>%
+  filter(str_detect(symbol,"^ART") | str_detect(symbol, "^ARN"))
+sagebrush_plots
+```
+
+## Write to the File
+```{r}
+saveRDS(sagebrush_plots, "output/2017/dove_creek/2017_sagebrush_plots_lpi_cover_dov")
+```
+
+

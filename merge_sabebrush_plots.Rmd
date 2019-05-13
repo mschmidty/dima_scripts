@@ -1,0 +1,46 @@
+---
+title: "Merge Sagebrush Data Into One File"
+author: "Michael Schmidt"
+date: "September 26, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+```{r}
+library(tidyverse)
+```
+
+## Load Files
+```{r}
+data2015<-read_csv("output/2015/2015_dima_lpi_cover_all_reshape.csv")
+data2016<-read_csv("output/2016/2016_dima_lpi_cover_all_reshape.csv")
+data2017dry<-read_csv("output/2017/dry_creek/2017_dima_lpi_cover_all_dry_reshape.csv")
+data2017dov<-read_csv("output/2017/dove_creek/2017_dima_lpi_cover_all_dov_reshape.csv")
+```
+
+```{r}
+data2015
+data2016
+data2017dry
+data2017dov
+```
+
+##Merge All dAtasets
+```{r}
+merged<-bind_rows(data2016, data2017dry, data2017dov)
+merged<-merged%>%replace( is.na(.), 0)
+merged
+```
+
+
+
+
+##Write For GIS
+```{r}
+write_csv(merged, "output/all/lpi_cover_all.csv")
+```
+
